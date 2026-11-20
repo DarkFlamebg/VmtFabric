@@ -1,0 +1,27 @@
+# Blueprint de Render para la API de VmtFabric.
+# La base de datos NO está en Render: es SQL Server en MonsterASP.NET (centro de datos EU).
+# Los valores con "sync: false" son secretos o dependen del entorno: se ingresan en el
+# dashboard de Render al crear el Blueprint y nunca se guardan en el repositorio.
+services:
+  - type: web
+    name: vmtfabric-api
+    runtime: docker
+    plan: free
+    region: frankfurt            # cerca de la base de datos (EU) para reducir latencia
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - backend/**             # cambios en el frontend no redespliegan la API
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ReverseProxy__Enabled
+        value: "true"
+      - key: AllowedHosts
+        value: "*.onrender.com"  # agregar el dominio propio si se configura uno
+      - key: ConnectionStrings__VmtFabric
+        sync: false              # cadena "remote" de MonsterASP (dbXXXX.public.databaseasp.net)
+      - key: Cors__AllowedOrigins__0
+        sync: false              # URL del frontend Angular desplegado

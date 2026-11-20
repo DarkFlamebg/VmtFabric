@@ -1,0 +1,10 @@
+bin/
+obj/
+*.user
+.vs/
+App_Data/
+
+# Secretos locales: nunca versionar
+.env
+.env.*
+!.env.example

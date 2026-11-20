@@ -1,17 +1,61 @@
-/* =====================================================================
+﻿/* =====================================================================
    VmtFabric - Gestión de talento de la fábrica de software
-   Motor: SQL Server 2019+  |  Backend: ASP.NET Core + EF Core
+   Motor: SQL Server Express 2019+ (probado para 2025 Express, v17)
+   Backend: ASP.NET Core + EF Core
    Basado en: diseño Figma Make + requerimientos del cliente
      - 2 roles: Administrador (todo) y Gestor (solo Talento)
      - Login sin registro: el Administrador crea los usuarios
      - Asignaciones con tiempo, valor a cobrar, costo, margen e ingresos
      - Avisos (contratos por vencer, evaluaciones pendientes)
      - Crear evaluaciones y asignar un evaluador
+
+   El script no crea la base ni cambia de base: se ejecuta conectado a la
+   base destino (en hosting/nube la base ya existe y su nombre lo asigna
+   el proveedor, p. ej. MonsterASP "dbXXXX").
+   Nota: el importador del panel de MonsterASP rechaza el archivo si
+   contiene ciertos comandos de servidor, incluso dentro de comentarios.
+
+   Ejecución (el archivo está en UTF-8 con BOM):
+     Nube (MonsterASP): panel -> Import SQL, o
+       sqlcmd -S dbXXXX.public.databaseasp.net -d dbXXXX -U dbXXXX -P "<password>" -N -b -i VmtFabric_BD.sql
+     Local (SQL Server Express): crear antes una base vacía "VmtFabric"
+       (SSMS: clic derecho en Databases -> New Database) y luego:
+       sqlcmd -S .\SQLEXPRESS -E -d VmtFabric -b -i VmtFabric_BD.sql
+   Connection string local para la API:
+     Server=.\SQLEXPRESS;Database=VmtFabric;Trusted_Connection=True;TrustServerCertificate=True
+
+   Notas SQL Server Express:
+     - Límite de 10 GB por base de datos (los archivos de Documento van a
+       disco/blob; aquí solo se guarda la ruta).
+     - No incluye SQL Server Agent: sp_GenerarAvisos se ejecuta desde un
+       BackgroundService de .NET (o el Programador de tareas con sqlcmd).
    ===================================================================== */
 
-IF DB_ID('VmtFabric') IS NULL CREATE DATABASE VmtFabric;
+-- sqlcmd arranca con QUOTED_IDENTIFIER OFF; los índices filtrados y las
+-- columnas calculadas PERSISTED exigen estas opciones en ON.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
 GO
-USE VmtFabric;
+
+-- Seguridad: no ejecutar el esquema por error en una base del sistema
+IF DB_NAME() IN ('master', 'model', 'msdb', 'tempdb')
+BEGIN
+    RAISERROR('Conéctese a la base destino (sqlcmd -d <base>) antes de ejecutar el script.', 16, 1);
+    SET NOEXEC ON;
+END
+GO
+
+-- El script crea el esquema desde cero: si ya existe, se detiene sin tocar nada
+IF OBJECT_ID('dbo.Rol', 'U') IS NOT NULL
+BEGIN
+    RAISERROR('La base VmtFabric ya tiene el esquema creado. Elimínela antes de volver a ejecutar el script.', 16, 1);
+    SET NOEXEC ON;
+END
 GO
 
 /* =====================================================================
@@ -489,16 +533,23 @@ BEGIN
         Estado = 'Completada',
         FechaCompletada = SYSUTCDATETIME()
     FROM Evaluacion e
+    -- Puntaje 0-100 = Σ((p - min)/(max - min)·w) / Σw  =  (Σ(p·w) - min·Σw) / ((max - min)·Σw)
+    -- Las columnas de "e" quedan fuera de los SUM: SQL Server no permite mezclar
+    -- referencias externas con columnas internas dentro de un agregado (error 8124).
     CROSS APPLY (
-        SELECT CAST(SUM((c.Puntaje - e.EscalaMin) * 1.0 / (e.EscalaMax - e.EscalaMin) * c.Peso)
-                    / SUM(c.Peso) * 100 AS DECIMAL(5,2)) AS Puntaje
+        SELECT SUM(c.Puntaje * c.Peso) AS SumaPonderada, SUM(c.Peso) AS SumaPesos
         FROM EvaluacionCriterio c WHERE c.EvaluacionId = e.EvaluacionId
+    ) s
+    CROSS APPLY (
+        SELECT CAST((s.SumaPonderada - e.EscalaMin * s.SumaPesos) * 100.0
+                    / ((e.EscalaMax - e.EscalaMin) * NULLIF(s.SumaPesos, 0)) AS DECIMAL(5,2)) AS Puntaje
     ) x
     WHERE e.EvaluacionId = @EvaluacionId;
 END;
 GO
 
--- Genera avisos (ejecutar a diario desde un BackgroundService/Hangfire de .NET o SQL Agent)
+-- Genera avisos (ejecutar a diario desde un BackgroundService/Hangfire de .NET;
+-- SQL Server Express no trae SQL Agent)
 CREATE OR ALTER PROCEDURE sp_GenerarAvisos
 AS
 BEGIN
@@ -568,4 +619,7 @@ INSERT INTO CriterioPlantilla (Descripcion) VALUES
 -- Usuario administrador inicial: reemplazar el hash desde la API (PasswordHasher) en el primer despliegue
 INSERT INTO Usuario (Nombre, Correo, PasswordHash, RolId, DebeCambiarPassword)
 VALUES (N'Administrador', N'admin@vmtfabric.com', N'<REEMPLAZAR_CON_HASH>', 1, 1);
+GO
+
+SET NOEXEC OFF;  -- restaura la sesión si el script se detuvo por esquema existente
 GO

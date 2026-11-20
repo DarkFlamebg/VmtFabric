@@ -1,6 +1,7 @@
-@backend_HostAddress = http://localhost:5222
+@host = http://localhost:5222
 
-GET {{backend_HostAddress}}/weatherforecast/
-Accept: application/json
+### Salud de la API y conexión a SQL Server
+GET {{host}}/health
 
-###
+### Documento OpenAPI
+GET {{host}}/openapi/v1.json
