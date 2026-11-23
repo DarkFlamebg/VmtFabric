@@ -6,10 +6,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(k => k.AddServerHeader = false);
 
 // Development: la cadena de la base compartida se arma desde backend/.env (no versionado).
-builder.Configuration.AddDotEnvDatabase(builder.Environment);
+builder.Configuration.AddDotEnv(builder.Environment);
 
 builder.Services
     .AddPersistence(builder.Configuration, builder.Environment)
+    .AddAplicacion(builder.Configuration)
+    .AddSeguridad(builder.Configuration)
     .AddApiServices()
     .AddReverseProxySupport(builder.Configuration)
     .AddFrontendCors(builder.Configuration);
@@ -18,5 +20,6 @@ var app = builder.Build();
 
 app.ValidateEfModel()
    .UseApiPipeline();
+await app.AplicarAdminInicialAsync();
 
-app.Run();
+await app.RunAsync();

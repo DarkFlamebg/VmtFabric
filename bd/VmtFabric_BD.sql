@@ -103,6 +103,8 @@ CREATE TABLE RefreshToken (
     Revocado        BIT           NOT NULL DEFAULT 0,
     FechaCreacion   DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()
 );
+CREATE UNIQUE INDEX UQ_RefreshToken_TokenHash ON RefreshToken (TokenHash);   -- /auth/refresh y /auth/logout
+CREATE INDEX IX_RefreshToken_Usuario ON RefreshToken (UsuarioId, Revocado);
 
 /* =====================================================================
    2. CATÁLOGOS

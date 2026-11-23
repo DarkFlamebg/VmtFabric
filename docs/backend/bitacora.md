@@ -88,3 +88,27 @@ Entradas en orden cronológico (la más reciente al final).
 - Contraseña del usuario `db81318` restablecida por el desarrollador y `.env` corregido (faltaba `DB_USER`). Bloqueo del IDS quitado desde el panel (*Users → Automated Security Protection → Remove*).
 - **Verificado:** `/health` → **200 Healthy** (2 s). Consulta con `sqlcmd` desde el PC: base `db81318`, 26 tablas, 8 vistas, 2 procedimientos, 2 roles, 9 cargos, 19 tecnologías, 1 usuario. **La API local ya está conectada a la base en la nube.**
 - Lección: un `.env` con la contraseña incorrecta bloquea la IP en pocos arranques de la API. Antes de arrancar, confirmar la contraseña; si falla una vez, no reintentar.
+
+---
+
+## 2026-11-22 · Fase 02 — Autenticación, usuarios y auditoría ✅
+
+**Hecho**
+- Login JWT (15 min) + refresh token rotativo con hash SHA-256 y detección de reutilización; logout; cambio de contraseña; `GET /api/auth/me`.
+- Bloqueo tras 5 intentos (15 min), rate limiting de 10/min por IP en `/api/auth`, BCrypt factor 12, mensajes que no revelan si el correo existe.
+- Contraseñas temporales generadas por el servidor (sin correo); `PasswordPendienteMiddleware` obliga a cambiarlas.
+- CRUD de usuarios solo para Administrador, con reglas (siempre un Admin activo, no auto-desactivarse, etc.).
+- Política de respaldo: todo exige sesión salvo lo marcado `[AllowAnonymous]`. Políticas `Administrador` y `Talento`.
+- Auditoría automática con interceptor de EF + eventos de seguridad con IP.
+- FluentValidation con filtro global; errores del framework (401/403/404/405) en español.
+- Nuevas carpetas `Security/`, `Validators/`, `Filters/`, `Data/Interceptors/` (DT-14). Decisiones DT-13 a DT-15.
+- `bd/cambios/002_indice_refreshtoken.sql` y el script principal con los índices de `RefreshToken`.
+- `.env` admite `JWT_KEY` (obligatoria) y `ADMIN_PASSWORD`; `render.yaml` con `Jwt__Key`.
+
+**Verificado contra la base en MonsterASP:** 39/39 pruebas de punta a punta, 429 al 11.º login por minuto, filas de `Auditoria` correctas, hashes BCrypt. Detalle en `fases/fase-02-autenticacion.md`.
+
+**Datos de prueba en la base compartida:** admin con contraseña definitiva (en el `.env` de quien ejecutó las pruebas) y `gestor.prueba@vmtfabric.test` inactivo.
+
+**Pendiente:** ejecutar `002_indice_refreshtoken.sql` en la base compartida; que cada integrante agregue `JWT_KEY` a su `.env`.
+
+**Siguiente:** Fase 03 — Catálogos.

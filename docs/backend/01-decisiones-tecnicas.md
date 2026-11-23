@@ -63,3 +63,21 @@ Al iniciar en Development se construye el modelo EF y se registra cuántas entid
 - La API soporta proxy inverso de forma opcional (`ReverseProxy:Enabled`, solo para el plan B): cabeceras reenviadas, redirección HTTPS al 443 (excepto `/health`) y HSTS de 1 año.
 
 **Consecuencias:** sin costo y sin cambios en EF Core. Efectos en las fases: la **02** restablece contraseñas por el Administrador (MonsterASP Free no envía correos); la **07** puede guardar documentos en el disco del sitio; la **10** genera avisos bajo demanda (no hay tareas programadas). Los cambios de esquema posteriores van en scripts incrementales (`bd/cambios/NNN_*.sql`) porque la base es compartida. Detalle en [04-despliegue.md](04-despliegue.md). Antes de una puesta en producción real hay que revisar esta decisión.
+
+## DT-13 · Autenticación: JWT corto + refresh token rotativo en el cuerpo
+**Contexto:** fase 02. El frontend (Render) y la API (MonsterASP) estarán en dominios distintos; no hay correo.
+**Decisión:**
+- Access token JWT HS256 de 15 min con `sub`, `name`, `email`, `role` y `pwd_change`. Clave en `Jwt:Key` (≥ 32 caracteres), nunca en el repositorio.
+- Refresh token aleatorio de 256 bits, 7 días, guardado como hash SHA-256 en `RefreshToken`; se **rota** en cada uso con revocación atómica (`ExecuteUpdate ... WHERE Revocado = 0`). Presentar un token ya revocado revoca todas las sesiones del usuario.
+- Ambos tokens viajan en el cuerpo JSON (no en cookies): una cookie entre dominios distintos exigiría `SameSite=None` y protección CSRF. El frontend guarda el access token en memoria.
+- BCrypt factor 12; bloqueo de 15 min tras 5 fallos; 10 peticiones/min por IP en `/api/auth`; mismo mensaje para correo inexistente y contraseña errónea, con verificación ficticia para igualar tiempos.
+- Contraseña temporal generada por el servidor (crear/restablecer usuario); hasta cambiarla, el middleware `PasswordPendienteMiddleware` solo permite `/me`, `/cambiar-password` y `logout`.
+**Consecuencias:** sin dependencia de ASP.NET Identity (el esquema de la BD ya define `Usuario`/`Rol`). Un access token emitido sigue valiendo hasta 15 min tras desactivar al usuario.
+
+## DT-14 · Carpetas Security, Validators y Filters
+**Decisión:** se agregan a la estructura de DT-09: `Security/` (JWT, BCrypt, `ICurrentUser`, políticas), `Validators/` (FluentValidation, uno por DTO de entrada) y `Filters/` (`ValidationFilter`, que ejecuta los validadores antes del controller y responde `ValidationProblemDetails`). La auditoría automática vive en `Data/Interceptors/`.
+**Consecuencias:** los controllers siguen delgados y los servicios no conocen `HttpContext`.
+
+## DT-15 · Auditoría con interceptor de EF Core
+**Decisión:** un `SaveChangesInterceptor` registra `Crear`/`Editar`/`Eliminar` de toda entidad (salvo tablas técnicas) con el `antes/después` en JSON y completa `CreadoPor`/`ModificadoPor`/`FechaModificacion`. Los eventos que no son cambios de datos (`Login`, `LoginFallido`, `Logout`, `CambioPassword`, `ResetPassword`, `TokenReutilizado`, y en la fase 12 `Exportar`) se registran con `IAuditoriaService`, incluyendo la IP. Los hashes se guardan como `***`.
+**Consecuencias:** ningún módulo nuevo necesita código de auditoría propio. Cada `SaveChanges` con cambios auditables hace un segundo `SaveChanges` para la tabla `Auditoria` (los Id generados ya existen).

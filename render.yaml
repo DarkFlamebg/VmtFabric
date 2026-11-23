@@ -25,3 +25,5 @@ services:
         sync: false              # cadena "remote" de MonsterASP (dbXXXX.public.databaseasp.net)
       - key: Cors__AllowedOrigins__0
         sync: false              # URL del frontend Angular desplegado
+      - key: Jwt__Key
+        sync: false              # clave de firma JWT (>= 32 caracteres, aleatoria, solo para producción)

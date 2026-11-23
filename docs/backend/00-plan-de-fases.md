@@ -5,7 +5,7 @@ Leyenda de estado: ✅ terminada · 🔄 en curso · ⏳ pendiente
 | # | Fase | Estado | Requerimientos |
 |---|---|---|---|
 | 01 | Fundamentos | ✅ | RNF-05 (base), RNF-08 |
-| 02 | Autenticación, usuarios y auditoría | ⏳ | RF-01, RF-02, RF-51, RF-52, RNF-01, RNF-02, RNF-07 |
+| 02 | Autenticación, usuarios y auditoría | ✅ | RF-01, RF-02, RF-51, RF-52, RNF-01, RNF-02, RNF-07 |
 | 03 | Catálogos | ⏳ | RF-53, RF-54, RF-55 |
 | 04 | Colaboradores | ⏳ | RF-12 a RF-18, RF-23, RF-25, RN-04, RN-05, RN-09, RN-10 |
 | 05 | Clientes y proyectos | ⏳ | RF-27, RF-28, RF-29, RF-31, RF-32 |
@@ -28,7 +28,8 @@ Leyenda de estado: ✅ terminada · 🔄 en curso · ⏳ pendiente
 ### 01 · Fundamentos ✅
 Estructura `Controllers / Models / Middleware / Services / Data`, EF Core mapeado a las 26 tablas del script (sin migraciones), middleware de errores (ProblemDetails) y de cabeceras de seguridad, CORS para Angular, secretos fuera del repositorio, analizadores de código, OpenAPI + Scalar, health check de SQL Server. → [fases/fase-01-fundamentos.md](fases/fase-01-fundamentos.md)
 
-### 02 · Autenticación, usuarios y auditoría
+### 02 · Autenticación, usuarios y auditoría ✅
+→ [fases/fase-02-autenticacion.md](fases/fase-02-autenticacion.md)
 - `POST /api/auth/login`, `/refresh`, `/logout`, `/cambiar-password`; el Administrador restablece contraseñas de otros usuarios (sin correo, ver DT-12).
 - JWT de acceso corto + refresh token rotativo guardado como hash (`RefreshToken`).
 - Bloqueo por intentos fallidos (`IntentosFallidos`, `BloqueadoHasta`), `DebeCambiarPassword`.

@@ -40,6 +40,7 @@ public partial class ExceptionHandlingMiddleware(
     private async Task WriteProblemAsync(HttpContext context, Exception ex)
     {
         var (status, title, detail) = Map(ex);
+        var codigo = (ex as AppException)?.Codigo;
 
         if (status >= StatusCodes.Status500InternalServerError)
             LogErrorNoControlado(logger, ex, context.Request.Method, context.Request.Path);
@@ -48,11 +49,11 @@ public partial class ExceptionHandlingMiddleware(
 
         context.Response.Clear();
         context.Response.StatusCode = status;
-        await problemDetails.WriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = context,
-            ProblemDetails = new ProblemDetails { Status = status, Title = title, Detail = detail }
-        });
+        var problem = new ProblemDetails { Status = status, Title = title, Detail = detail };
+        if (codigo is not null)
+            problem.Extensions["codigo"] = codigo;
+
+        await problemDetails.WriteAsync(new ProblemDetailsContext { HttpContext = context, ProblemDetails = problem });
     }
 
     private static (int Status, string Title, string Detail) Map(Exception ex) => ex switch

@@ -1,6 +1,9 @@
+using System.Data.Common;
+using Microsoft.EntityFrameworkCore.Storage;
 using Scalar.AspNetCore;
 using VmtFabric.Api.Data;
 using VmtFabric.Api.Middleware;
+using VmtFabric.Api.Services.Auth;
 
 namespace VmtFabric.Api.Extensions;
 
@@ -20,8 +23,8 @@ public static partial class WebApplicationExtensions
 
         if (app.Environment.IsDevelopment())
         {
-            app.MapOpenApi();                                          // /openapi/v1.json
-            app.MapScalarApiReference(o => o.Title = "VmtFabric API"); // /scalar
+            app.MapOpenApi().AllowAnonymous();                                          // /openapi/v1.json
+            app.MapScalarApiReference(o => o.Title = "VmtFabric API").AllowAnonymous(); // /scalar
         }
         else
         {
@@ -33,12 +36,36 @@ public static partial class WebApplicationExtensions
         }
 
         app.UseCors(ServiceCollectionExtensions.CorsPolicy);
-        // Fase 02: app.UseAuthentication(); app.UseAuthorization();
+        app.UseRateLimiter();                               // 4. límite por IP en /api/auth
+        app.UseAuthentication();                            // 5. lee el Bearer token
+        app.UseAuthorization();                             // 6. política de respaldo: exige sesión
+        app.UseMiddleware<PasswordPendienteMiddleware>();   // 7. contraseña temporal -> solo cambiarla
 
         app.MapControllers();
-        app.MapHealthChecks("/health");
+        app.MapHealthChecks("/health").AllowAnonymous();
         return app;
     }
+
+    /// <summary>
+    /// Reemplaza el hash pendiente del administrador inicial (ver AdminInicialService).
+    /// Si la BD no responde, la API arranca igual y /health mostrará el problema.
+    /// </summary>
+    public static async Task<WebApplication> AplicarAdminInicialAsync(this WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<AdminInicialService>().AplicarAsync(app.Lifetime.ApplicationStopping);
+        }
+        catch (Exception ex) when (ex is DbException or RetryLimitExceededException or TimeoutException)
+        {
+            LogAdminInicialFallo(app.Logger, ex);
+        }
+        return app;
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No se pudo revisar el administrador inicial: la BD no respondió")]
+    private static partial void LogAdminInicialFallo(ILogger logger, Exception ex);
 
     /// <summary>En desarrollo construye el modelo EF al arrancar: un error de mapeo falla de inmediato.</summary>
     public static WebApplication ValidateEfModel(this WebApplication app)

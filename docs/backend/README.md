@@ -24,7 +24,7 @@ Registro de la construcción del backend (ASP.NET Core 10 + EF Core + SQL Server
 ## Arranque rápido
 
 ```bash
-# 1a. Base de datos compartida en MonsterASP: copiar backend/.env.example como backend/.env y completar DB_PASSWORD
+# 1a. Base de datos compartida en MonsterASP: copiar backend/.env.example como backend/.env y completar DB_PASSWORD y JWT_KEY
 # 1b. O base local (requiere el servicio SQL Server (SQLEXPRESS) iniciado):
 sqlcmd -S .\SQLEXPRESS -E -Q "CREATE DATABASE VmtFabric"
 sqlcmd -S .\SQLEXPRESS -E -d VmtFabric -b -i bd/VmtFabric_BD.sql
@@ -39,3 +39,5 @@ dotnet run --launch-profile http
 | http://localhost:5222/scalar | Documentación interactiva de la API (solo Development) |
 | http://localhost:5222/openapi/v1.json | Documento OpenAPI |
 | http://localhost:5222/health | Estado de la API y conexión a SQL Server |
+
+Todos los endpoints exigen sesión salvo login/refresh/logout y `/health`. Para probar en Scalar: `POST /api/auth/login`, copiar `accessToken` y pegarlo en **Authentication → Bearer**. Contrato completo en [fases/fase-02-autenticacion.md](fases/fase-02-autenticacion.md).

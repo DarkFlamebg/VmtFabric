@@ -36,7 +36,7 @@ Base del equipo: servidor `db81318.public.databaseasp.net`, base y usuario `db81
 La contraseña **nunca** se guarda en el repositorio ni se pega en chats en texto plano; se comparte por un gestor de contraseñas. Cada integrante:
 ```bash
 cd backend
-copy .env.example .env      # completar DB_PASSWORD
+copy .env.example .env      # completar DB_PASSWORD y JWT_KEY
 dotnet run --launch-profile http
 # Comprobar: http://localhost:5222/health  ->  Healthy
 ```
@@ -69,6 +69,7 @@ dotnet run --launch-profile http
    | `ConnectionStrings:VmtFabric` | Cadena **interna** de la base (sin `public`): no sale a internet |
    | `AllowedHosts` | `vmtfabric.runasp.net` (el subdominio elegido) |
    | `Cors:AllowedOrigins:0` | URL del frontend en Render |
+   | `Jwt:Key` | Clave aleatoria de 48+ bytes en Base64, **distinta** de las de desarrollo |
    | `ASPNETCORE_ENVIRONMENT` | `Production` |
    El mecanismo exacto (panel o `web.config` generado al publicar) se define en esa fase.
 5. **Pedir HTTPS por ticket a soporte** apenas se suba el sitio (en Free no es automático). Sin HTTPS no se puede usar la API: JWT y contraseñas viajarían en claro.

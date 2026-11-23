@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using VmtFabric.Api.Configuration;
 using VmtFabric.Api.Data;
+using VmtFabric.Api.Data.Interceptors;
+using VmtFabric.Api.Filters;
 
 namespace VmtFabric.Api.Extensions;
 
@@ -10,6 +12,14 @@ namespace VmtFabric.Api.Extensions;
 public static class ServiceCollectionExtensions
 {
     public const string CorsPolicy = "Frontend";
+
+    private static readonly Dictionary<int, (string Title, string Detail)> TextosEstado = new()
+    {
+        [StatusCodes.Status401Unauthorized] = ("No autorizado", "Debe iniciar sesión."),
+        [StatusCodes.Status403Forbidden] = ("Acceso denegado", "No tiene permisos para esta acción."),
+        [StatusCodes.Status404NotFound] = ("No encontrado", "El recurso solicitado no existe."),
+        [StatusCodes.Status405MethodNotAllowed] = ("Método no permitido", "El método HTTP no está permitido para este recurso.")
+    };
 
     public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration config, IHostEnvironment env)
     {
@@ -19,9 +29,11 @@ public static class ServiceCollectionExtensions
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException("Falta la cadena de conexión 'ConnectionStrings:VmtFabric'.");
 
-        services.AddDbContext<VmtFabricDbContext>(opt =>
+        services.AddDbContext<VmtFabricDbContext>((sp, opt) =>
         {
             opt.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3));
+            // S-13: cada SaveChanges deja su rastro en la tabla Auditoria.
+            opt.AddInterceptors(sp.GetRequiredService<AuditoriaInterceptor>());
             // Los valores de parámetros solo se registran en desarrollo (pueden contener datos personales).
             if (env.IsDevelopment())
                 opt.EnableSensitiveDataLogging().EnableDetailedErrors();
@@ -33,11 +45,19 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
-        services.AddControllers();
-        services.AddOpenApi();
+        // Validación FluentValidation de los DTO antes de entrar al controller (S-04).
+        services.AddControllers(o => o.Filters.Add<ValidationFilter>());
+        services.AddOpenApi(o => o.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
         services.AddProblemDetails(o => o.CustomizeProblemDetails = ctx =>
         {
             ctx.ProblemDetails.Instance = $"{ctx.HttpContext.Request.Method} {ctx.HttpContext.Request.Path}";
+            // Respuestas generadas por el framework (401 sin token, 403 sin rol, 404 de ruta...): textos en español.
+            if (ctx.ProblemDetails.Detail is null && ctx.ProblemDetails.Status is { } status
+                && TextosEstado.TryGetValue(status, out var texto))
+            {
+                ctx.ProblemDetails.Title = texto.Title;
+                ctx.ProblemDetails.Detail = texto.Detail;
+            }
             ctx.ProblemDetails.Extensions["traceId"] = Activity.Current?.Id ?? ctx.HttpContext.TraceIdentifier;
         });
         return services;

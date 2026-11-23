@@ -11,9 +11,12 @@ backend/
 │   ├── Entities/         Una clase por tabla (mapeo 1:1 con bd/VmtFabric_BD.sql). Nunca se devuelven al cliente.
 │   ├── DTOs/             Contratos de entrada/salida de la API, agrupados por módulo (DTOs/Colaboradores/...).
 │   └── Constants/        Valores fijos de la BD (estados, tipos) como constantes.
-├── Middleware/           Componentes del pipeline HTTP (errores, cabeceras de seguridad, ...).
+├── Middleware/           Componentes del pipeline HTTP (errores, cabeceras de seguridad, contraseña pendiente...).
+├── Filters/              Filtros MVC transversales (validación FluentValidation).
+├── Validators/           Un validador FluentValidation por DTO de entrada + reglas comunes.
+├── Security/             JWT, hash de contraseñas, usuario actual (ICurrentUser), claims y políticas.
 ├── Services/             Lógica de negocio y reglas RN-xx. Interfaz + implementación por módulo.
-├── Data/                 DbContext, Configurations/ (una por entidad) y health check.
+├── Data/                 DbContext, Configurations/ (una por entidad), Interceptors/ (auditoría) y health check.
 ├── Exceptions/           Excepciones de aplicación (se traducen a HTTP en el middleware).
 ├── Configuration/        Clases de opciones tipadas (secciones de appsettings), validadas al arrancar.
 ├── Extensions/           Registro de servicios y pipeline, para que Program.cs quede corto.
@@ -21,7 +24,7 @@ backend/
 ```
 
 Flujo de una petición: `Middleware → Controller → Service → Data (DbContext)`.
-Un controller **no** usa el DbContext directamente y un servicio **no** conoce `HttpContext`.
+Un controller **no** usa el DbContext directamente y un servicio **no** conoce `HttpContext` (usa `ICurrentUser`).
 
 ## 2. Principios de seguridad
 
@@ -33,11 +36,11 @@ Un controller **no** usa el DbContext directamente y un servicio **no** conoce `
 | S-04 | Validar toda entrada | DataAnnotations/FluentValidation en DTOs; longitudes iguales a las de la BD; cédula con algoritmo ecuatoriano. |
 | S-05 | Consultas parametrizadas | Solo LINQ o `FromSql($"...")` interpolado (parametriza). Prohibido `FromSqlRaw` con concatenación. |
 | S-06 | Errores sin detalles internos | El middleware responde ProblemDetails; un 500 nunca incluye mensaje, SQL ni stack trace. Se devuelve `traceId` para buscar en el log. |
-| S-07 | Secretos fuera del repositorio | `appsettings.json` no lleva cadenas ni claves. Desarrollo: `appsettings.Development.json` / `dotnet user-secrets`. Producción: variables de entorno (`ConnectionStrings__VmtFabric`, `Jwt__Key`). La API no arranca si faltan. |
+| S-07 | Secretos fuera del repositorio | `appsettings.json` no lleva cadenas ni claves. Desarrollo: `appsettings.Development.json` / `dotnet user-secrets`. Desarrollo con la base compartida: `backend/.env` (`DB_*`, `JWT_KEY`). Producción: variables de entorno (`ConnectionStrings__VmtFabric`, `Jwt__Key`). La API no arranca si faltan. |
 | S-08 | Contraseñas y tokens con hash | BCrypt para contraseñas; refresh/recuperación se guardan como hash SHA-256, nunca en claro. |
 | S-09 | Cabeceras HTTP seguras | `SecurityHeadersMiddleware`: nosniff, `X-Frame-Options: DENY`, CSP restrictiva, `Referrer-Policy`, `Permissions-Policy`, `Cache-Control: no-store` en `/api`. Sin cabecera `Server`. HSTS + redirección HTTPS fuera de desarrollo. |
 | S-10 | CORS cerrado | Solo los orígenes de `Cors:AllowedOrigins` (validado al arrancar); nunca `*`. |
-| S-11 | Límites | Cuerpo máximo 10 MB (Kestrel); paginación con tamaño máximo; rate limiting en login (fase 02); tipos y tamaño de archivo controlados (fase 07). |
+| S-11 | Límites | Cuerpo máximo 10 MB (Kestrel); paginación con tamaño máximo; rate limiting en `/api/auth` (10/min por IP); tipos y tamaño de archivo controlados (fase 07). |
 | S-12 | Datos personales en logs | `EnableSensitiveDataLogging` solo en Development. No registrar contraseñas, tokens ni documentos. |
 | S-13 | Auditoría | Crear/editar/eliminar/login/exportar quedan en `Auditoria` con usuario y fecha (RNF-07). |
 | S-14 | Documentación privada | OpenAPI/Scalar solo en Development. |

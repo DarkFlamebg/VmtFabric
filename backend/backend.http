@@ -1,7 +1,42 @@
 @host = http://localhost:5222
+# Pegar aquí el accessToken que devuelve el login (no versionar tokens reales).
+@token = <accessToken>
 
 ### Salud de la API y conexión a SQL Server
 GET {{host}}/health
 
 ### Documento OpenAPI
 GET {{host}}/openapi/v1.json
+
+### Login (la contraseña del admin de desarrollo está en ADMIN_PASSWORD de tu .env)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "correo": "admin@vmtfabric.com", "password": "<contraseña>" }
+
+### Usuario de la sesión
+GET {{host}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Renovar tokens (el refresh token usado deja de servir)
+POST {{host}}/api/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "<refreshToken>" }
+
+### Listar usuarios (solo Administrador)
+GET {{host}}/api/usuarios?pagina=1&tamanoPagina=20
+Authorization: Bearer {{token}}
+
+### Crear usuario: devuelve la contraseña temporal una sola vez
+POST {{host}}/api/usuarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "nombre": "Nombre Apellido", "correo": "usuario@vmtfabric.test", "rolId": 2 }
+
+### Cerrar sesión
+POST {{host}}/api/auth/logout
+Content-Type: application/json
+
+{ "refreshToken": "<refreshToken>" }

@@ -3,15 +3,16 @@ using Microsoft.Data.SqlClient;
 namespace VmtFabric.Api.Extensions;
 
 /// <summary>
-/// Lee <c>backend/.env</c> (formato CLAVE=valor) y arma <c>ConnectionStrings:VmtFabric</c>.
-/// Solo en Development: en producción la cadena llega por variables de entorno del hosting.
+/// Lee <c>backend/.env</c> (formato CLAVE=valor) y lo traduce a configuración:
+/// DB_* → <c>ConnectionStrings:VmtFabric</c>, JWT_KEY → <c>Jwt:Key</c>, ADMIN_PASSWORD → <c>AdminInicial:Password</c>.
+/// Solo en Development: en producción todo llega por variables de entorno del hosting.
 /// El archivo está en .gitignore; la plantilla para el equipo es <c>.env.example</c>.
 /// </summary>
 public static class DotEnvExtensions
 {
-    private static readonly string[] Requeridas = ["DB_SERVER", "DB_NAME", "DB_USER", "DB_PASSWORD"];
+    private static readonly string[] Requeridas = ["DB_SERVER", "DB_NAME", "DB_USER", "DB_PASSWORD", "JWT_KEY"];
 
-    public static IConfigurationManager AddDotEnvDatabase(this IConfigurationManager config, IHostEnvironment env)
+    public static IConfigurationManager AddDotEnv(this IConfigurationManager config, IHostEnvironment env)
     {
         var path = Path.Combine(env.ContentRootPath, ".env");
         if (!env.IsDevelopment() || !File.Exists(path))
@@ -37,10 +38,15 @@ public static class DotEnvExtensions
             ConnectTimeout = 30
         };
 
-        config.AddInMemoryCollection(new Dictionary<string, string?>
+        var valores = new Dictionary<string, string?>
         {
-            ["ConnectionStrings:VmtFabric"] = csb.ConnectionString
-        });
+            ["ConnectionStrings:VmtFabric"] = csb.ConnectionString,
+            ["Jwt:Key"] = vars["JWT_KEY"]
+        };
+        if (vars.TryGetValue("ADMIN_PASSWORD", out var admin) && !string.IsNullOrWhiteSpace(admin))
+            valores["AdminInicial:Password"] = admin;
+
+        config.AddInMemoryCollection(valores);
         return config;
     }
 
