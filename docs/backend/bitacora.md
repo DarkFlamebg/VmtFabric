@@ -77,4 +77,14 @@ Entradas en orden cronológico (la más reciente al final).
 
 **Hecho:** `04-despliegue.md` reescrito por etapas, con reglas para la base compartida (scripts incrementales en `bd/cambios/`, copias semanales, manejo de la cadena de conexión). DT-12 revisada. Plan de fases ajustado (Fase 02 sin correo, Fase 07 en disco, Fase 10 bajo demanda).
 7. Nueva prueba API local → BD: `/health` → **503** tras 56 s (`SqlException` error 40/64, servidor no accesible). Diagnóstico de red: el puerto 1433 de salida **funciona** (portquiz.net:1433 OK) y el sitio de MonsterASP responde (443 OK), pero el servidor de bases 46.4.165.210 no responde en ningún puerto (tampoco ping) solo desde la IP pública del desarrollador. Conclusión: **bloqueo de la IP en el lado del proveedor**, no de la red local. Acciones: ticket a soporte de MonsterASP y/o prueba con datos móviles; alternativa evaluada: Azure SQL Database (oferta gratuita).
-8. Abierto ticket de soporte en MonsterASP (código `D74Y-YB7W-X84C`, prioridad media, vinculado a db81318) pidiendo revisar el firewall y desbloquear la IP del desarrollador. Estado: esperando respuesta (llega por correo y en *Tickets* del panel).
+8. Abierto ticket de soporte en MonsterASP (código `D74Y-Y87W-X84C`, prioridad media, vinculado a db81318) pidiendo revisar el firewall y desbloquear la IP del desarrollador. Estado: esperando respuesta (llega por correo y en *Tickets* del panel).
+
+## 2026-11-22 · Respuesta del soporte y causa real del bloqueo
+
+- Soporte (ticket `D74Y-Y87W-X84C`): la IP del desarrollador fue **bloqueada 24 h por varios intentos con contraseña incorrecta** y la desbloquearon.
+- Prueba: puerto 1433 abierto → un intento de la API (`/health`) → 503 y la IP **quedó bloqueada otra vez** de inmediato.
+- *Access log* del panel: solo hay inicios de sesión **locales** (el propio panel); ningún inicio de sesión remoto correcto desde el PC.
+- **Conclusión:** la contraseña de `backend/.env` no es la del usuario `db81318`. El bloqueo no es de red. Solución: restablecer la contraseña del usuario de la base en el panel, copiarla exacta al `.env` y pedir de nuevo el desbloqueo.
+- Contraseña del usuario `db81318` restablecida por el desarrollador y `.env` corregido (faltaba `DB_USER`). Bloqueo del IDS quitado desde el panel (*Users → Automated Security Protection → Remove*).
+- **Verificado:** `/health` → **200 Healthy** (2 s). Consulta con `sqlcmd` desde el PC: base `db81318`, 26 tablas, 8 vistas, 2 procedimientos, 2 roles, 9 cargos, 19 tecnologías, 1 usuario. **La API local ya está conectada a la base en la nube.**
+- Lección: un `.env` con la contraseña incorrecta bloquea la IP en pocos arranques de la API. Antes de arrancar, confirmar la contraseña; si falla una vez, no reintentar.
