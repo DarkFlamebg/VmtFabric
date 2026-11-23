@@ -11,6 +11,7 @@ Registro de la construcción del backend (ASP.NET Core 10 + EF Core + SQL Server
 | [02-brechas-bd-vs-requerimientos.md](02-brechas-bd-vs-requerimientos.md) | Diferencias entre `VmtFabric_Requerimientos.md` y `bd/VmtFabric_BD.sql`, y cómo se resuelven. |
 | [03-guia-seguridad-y-codigo.md](03-guia-seguridad-y-codigo.md) | **Reglas obligatorias**: estructura de carpetas (Controllers/Models/Middleware...), principios de seguridad y de mantenimiento, checklist de cierre de fase. |
 | [04-despliegue.md](04-despliegue.md) | Base de datos en MonsterASP.NET y API en Render: pasos, variables de entorno y limitaciones de los planes gratuitos. |
+| [05-api-para-frontend.md](05-api-para-frontend.md) | **Llamadas de la API para el frontend**: URL, flujo de sesión, endpoints con ejemplos, errores e interfaces TypeScript. |
 | [bitacora.md](bitacora.md) | Diario cronológico: qué se hizo, cuándo y qué quedó pendiente. |
 | [fases/](fases/) | Un archivo por fase con el detalle: alcance, archivos creados, endpoints, cómo probar y pendientes. |
 

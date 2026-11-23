@@ -112,3 +112,11 @@ Entradas en orden cronológico (la más reciente al final).
 **Pendiente:** ejecutar `002_indice_refreshtoken.sql` en la base compartida; que cada integrante agregue `JWT_KEY` a su `.env`.
 
 **Siguiente:** Fase 03 — Catálogos.
+
+---
+
+## 2026-11-23 · Prueba de login como frontend y guía de la API
+
+- Prueba simulando el navegador (`Origin: http://localhost:4200`): preflight CORS 204 con el origen permitido; login 401/200, `me`, usuarios, roles, refresh, logout y validación 400 correctos.
+- **Corregido:** las fechas leídas de la BD salían sin zona (`Kind=Unspecified`, JSON sin `Z`) y el navegador las habría tomado como hora local → convención EF `UtcDateTimeConverter` para todo `DateTime`. Las claves de `errors` en los 400 salían en PascalCase (`RolId`) → ahora camelCase (`rolId`), igual que el JSON.
+- Nuevo `05-api-para-frontend.md`: URL y CORS, convenciones, flujo de sesión, todos los endpoints con ejemplos reales, errores y modelos TypeScript.

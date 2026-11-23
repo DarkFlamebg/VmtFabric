@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -23,8 +24,9 @@ public sealed class ValidationFilter(IServiceProvider services) : IAsyncActionFi
 
             var resultado = await validador.ValidateAsync(
                 new ValidationContext<object>(argumento), context.HttpContext.RequestAborted);
+            // Claves en camelCase, igual que el JSON de la API ("rolId"), para asociarlas al campo del formulario.
             foreach (var error in resultado.Errors)
-                context.ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
+                context.ModelState.AddModelError(JsonNamingPolicy.CamelCase.ConvertName(error.PropertyName), error.ErrorMessage);
         }
 
         if (!context.ModelState.IsValid)

@@ -47,4 +47,13 @@ public class VmtFabricDbContext(DbContextOptions<VmtFabricDbContext> options) : 
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(VmtFabricDbContext).Assembly);
     }
+
+    /// <summary>
+    /// Las columnas DATETIME2 guardan UTC (SYSUTCDATETIME), pero SQL Server no guarda la zona:
+    /// sin esto se leen como Kind=Unspecified y el JSON sale sin "Z", y el navegador las tomaría como hora local.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+    }
 }

@@ -19,7 +19,8 @@
 - [x] Políticas `Administrador` y `Talento` (Administrador o Gestor) para las fases siguientes.
 - [x] `ICurrentUser` para que los servicios conozcan al usuario sin tocar `HttpContext`.
 - [x] Auditoría automática (interceptor de EF) + eventos explícitos de seguridad.
-- [x] Validación con FluentValidation (filtro global) con mensajes en español.
+- [x] Validación con FluentValidation (filtro global) con mensajes en español; claves de `errors` en camelCase.
+- [x] Fechas devueltas en UTC con `Z` (convención `UtcDateTimeConverter`).
 - [x] Esquema Bearer en OpenAPI: Scalar permite probar con token.
 
 ## Endpoints
